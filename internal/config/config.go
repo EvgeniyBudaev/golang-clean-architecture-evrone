@@ -18,15 +18,15 @@ type Config struct {
 	DBSSlMode   string `envconfig:"DB_SSLMODE"`
 }
 
-func Load() (*Config, error) {
+func Load(logger logger.Logger) (*Config, error) {
 	var cfg Config
 	if err := godotenv.Load(); err != nil {
-		logger.Log.Debug("error func Load, method Load by path internal/config/config.go", zap.Error(err))
+		logger.Debug("error func Load, method Load by path internal/config/config.go", zap.Error(err))
 		return nil, err
 	}
 	err := envconfig.Process("MYAPP", &cfg)
 	if err != nil {
-		logger.Log.Debug("error func Load, method Process by path internal/config/config.go", zap.Error(err))
+		logger.Debug("error func Load, method Process by path internal/config/config.go", zap.Error(err))
 		return nil, err
 	}
 	return &cfg, nil

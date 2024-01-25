@@ -5,3 +5,10 @@ type Room struct {
 	RoomName string `json:"roomName"`
 	Title    string `json:"title"`
 }
+
+func NewRoom(roomName, title string) *Room {
+	return &Room{
+		RoomName: roomName,
+		Title:    title,
+	}
+}

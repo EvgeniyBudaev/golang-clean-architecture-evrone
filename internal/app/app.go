@@ -1,53 +1,48 @@
 package app
 
 import (
-	"database/sql"
-	"fmt"
-	roomHandler "github.com/EvgeniyBudaev/golang-clean-architecture-evrone/internal/app/handlers/room"
+	"log"
+
 	"github.com/EvgeniyBudaev/golang-clean-architecture-evrone/internal/config"
-	"github.com/EvgeniyBudaev/golang-clean-architecture-evrone/internal/db"
-	"github.com/EvgeniyBudaev/golang-clean-architecture-evrone/internal/db/room"
 	"github.com/EvgeniyBudaev/golang-clean-architecture-evrone/internal/logger"
-	roomUseCase "github.com/EvgeniyBudaev/golang-clean-architecture-evrone/internal/useCase/room"
-	"github.com/gorilla/mux"
 	"go.uber.org/zap"
-	"net/http"
 )
 
-func Start() error {
-	// Config
-	cfg, err := config.Load()
-	if err != nil {
-		logger.Log.Debug("error func Start, method Load by path internal/app/app.go", zap.Error(err))
-		return err
-	}
-	// Logging
-	if err := logger.Initialize(cfg.LoggerLevel); err != nil {
-		logger.Log.Debug("error func Start, method Initialize by path internal/app/app.go", zap.Error(err))
-		return err
-	}
-	// Database
-	databaseURL := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Host, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName,
-		cfg.DBSSlMode)
-	conn, err := sql.Open("postgres", databaseURL)
-	if err != nil {
-		logger.Log.Debug("error func Start, method Open by path internal/app/app.go", zap.Error(err))
-		return err
-	}
-	database := db.NewDatabase(conn)
-	err = conn.Ping()
-	if err != nil {
-		logger.Log.Debug("error func Start, method Ping by path internal/app/app.go", zap.Error(err))
-		return err
-	}
-	dbRoom := room.NewPGRoomDB(database.GetDB())
-	useCaseRoom := roomUseCase.NewUseCaseRoom(dbRoom)
+type App struct {
+	Logger    logger.Logger
+	config    *config.Config
+	container *Container
+}
 
-	r := mux.NewRouter()
-	r.Handle("/api/v1/room/create", roomHandler.CreateRoomHandler(useCaseRoom)).Methods("POST")
-	r.Handle("/api/v1/room/list", roomHandler.GetRoomListHandler(useCaseRoom)).Methods("Get")
+func NewApp() *App {
+	default_logger, err := logger.NewLogger(logger.DEFAULT_LEVEL)
+	if err != nil {
+		log.Fatal("error func Start, method NewLogger by path internal/app/app.go", err)
+		return nil
+	}
 
-	err = http.ListenAndServe(cfg.Port, r)
-	return err
+	cfg, err := config.Load(default_logger)
+	if err != nil {
+		log.Fatal("error func Start, method Load by path internal/app/app.go", err)
+		return nil
+	}
+
+	logger, err := logger.NewLogger(cfg.LoggerLevel)
+	if err != nil {
+		log.Fatal("error func Start, method NewLogger by path internal/app/app.go", err)
+		return nil
+	}
+
+	postgresConnection, err := newPostgresConnection(cfg)
+	if err != nil {
+		logger.Fatal("error func Start, method newPostgresConnection by path internal/app/app.go", zap.Error(err))
+	}
+
+	container := NewContainer(logger, postgresConnection)
+
+	return &App{
+		config:    cfg,
+		Logger:    logger,
+		container: container,
+	}
 }
